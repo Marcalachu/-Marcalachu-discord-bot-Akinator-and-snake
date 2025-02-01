@@ -1,0 +1,232 @@
+import discord
+from discord.ext import commands
+import json
+import random
+import asyncio
+
+# Configuración del bot
+TOKEN = 'TU_TOKEN_AQUI'  # Reemplaza con tu token de Discord
+
+intents = discord.Intents.default()
+intents.message_content = True  # Habilitar el intent de contenido de mensajes
+bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Cargar el árbol de decisiones desde un archivo JSON
+def load_decision_tree():
+    try:
+        with open('decision_tree.json', 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        # Si no existe el archivo, se crea un árbol de decisiones inicial
+        return {
+            "¿Es un personaje real?": {
+                "sí": {
+                    "¿Es un científico?": {
+                        "sí": {
+                            "¿Es conocido por su trabajo en física?": {
+                                "sí": "Albert Einstein",
+                                "no": "Marie Curie"
+                            }
+                        },
+                        "no": {
+                            "¿Es un político?": {
+                                "sí": "Barack Obama",
+                                "no": "Elon Musk"
+                            }
+                        }
+                    },
+                    "¿Es un artista?": {
+                        "sí": {
+                            "¿Es un músico?": {
+                                "sí": "Freddie Mercury",
+                                "no": "Pablo Picasso"
+                            }
+                        },
+                        "no": {
+                            "¿Es un deportista?": {
+                                "sí": {
+                                    "¿Es un futbolista?": {
+                                        "sí": "Lionel Messi",
+                                        "no": "Michael Jordan"
+                                    }
+                                },
+                                "no": "Oprah Winfrey"
+                            }
+                        }
+                    }
+                },
+                "no": {
+                    "¿Es un superhéroe?": {
+                        "sí": {
+                            "¿Es de Marvel?": {
+                                "sí": "Spider-Man",
+                                "no": "Batman"
+                            }
+                        },
+                        "no": {
+                            "¿Es un personaje de dibujos animados?": {
+                                "sí": {
+                                    "¿Es de Disney?": {
+                                        "sí": "Mickey Mouse",
+                                        "no": "Bugs Bunny"
+                                    }
+                                },
+                                "no": "Shrek"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+# Guardar el árbol de decisiones en un archivo JSON
+def save_decision_tree(tree):
+    with open('decision_tree.json', 'w') as f:
+        json.dump(tree, f)
+
+# Comando para jugar Akinator
+@bot.command()
+async def akinator(ctx):
+    decision_tree = load_decision_tree()
+    await ctx.send("¡Comencemos a jugar Akinator! Piensa en un personaje y yo intentaré adivinarlo.")
+
+    current_node = decision_tree
+
+    while isinstance(current_node, dict):
+        for question, answers in current_node.items():
+            await ctx.send(question)
+            def check(m):
+                return m.author == ctx.author and m.channel == ctx.channel
+
+            try:
+                response = await bot.wait_for('message', check=check, timeout=15.0)
+                await ctx.send(f"Tu respuesta: {response.content}")
+                response = response.content.lower()
+
+                # Normalizar respuestas
+                if response in ["sí", "si", "yes", "y"]:
+                    response = "sí"
+                elif response in ["no", "n", "nope"]:
+                    response = "no"
+                else:
+                    await ctx.send("No entendí tu respuesta. Por favor, responde 'sí' o 'no'.")
+                    continue
+
+                if response in answers:
+                    current_node = answers[response]
+                else:
+                    await ctx.send("No entendí tu respuesta. Por favor, responde 'sí' o 'no'.")
+                    continue
+            except asyncio.TimeoutError:
+                await ctx.send("¡Tiempo agotado! El juego ha terminado.")
+                return
+
+    # Adivinar el personaje
+    guessed_character = current_node
+    await ctx.send(f"¡Creo que el personaje en el que pensabas es {guessed_character}!")
+
+    # Preguntar si el personaje es correcto
+    await ctx.send("¿Es correcto? (sí/no)")
+    def check(m):
+        return m.author == ctx.author and m.channel == ctx.channel
+
+    try:
+        response = await bot.wait_for('message', check=check, timeout=15.0)
+        if response.content.lower() in ["sí", "si", "yes", "y"]:
+            await ctx.send("¡Genial! Me alegra haber adivinado correctamente.")
+        elif response.content.lower() in ["no", "n", "nope"]:
+            await ctx.send("¡Oh no! ¿Cuál era el personaje?")
+            new_character = await bot.wait_for('message', check=check, timeout=15.0)
+            await ctx.send("¿Qué pregunta podría ayudarme a adivinarlo?")
+            new_question = await bot.wait_for('message', check=check, timeout=15.0)
+
+            # Actualizar el árbol de decisiones
+            decision_tree[new_question.content] = {
+                "sí": new_character.content,
+                "no": guessed_character
+            }
+            save_decision_tree(decision_tree)  # Guardar el árbol actualizado
+            await ctx.send("¡Gracias! He aprendido algo nuevo.")
+        else:
+            await ctx.send("No entendí tu respuesta. Por favor, responde 'sí' o 'no'.")
+    except asyncio.TimeoutError:
+        await ctx.send("¡Tiempo agotado! El juego ha terminado.")
+
+# Comando para jugar Snake
+snake_body = []
+food_position = (0, 0)
+snake_direction = "RIGHT"
+snake_game_active = False
+snake_players = 0  # Contador de jugadores en Snake
+
+def render_board():
+    board = ""
+    for y in range(10):
+        for x in range(10):
+            if (x, y) in snake_body:
+                board += "🐍"
+            elif (x, y) == food_position:
+                board += "🍏"
+            else:
+                board += "⬜"
+        board += "\n"
+    return board
+
+def update_snake_position():
+    global snake_body, food_position, snake_game_active
+    head_x, head_y = snake_body[0]
+
+    if snake_direction == "LEFT":
+        head_x -= 1
+    elif snake_direction == "RIGHT":
+        head_x += 1
+    elif snake_direction == "UP":
+        head_y -= 1
+    elif snake_direction == "DOWN":
+        head_y += 1
+
+    if head_x < 0 or head_x >= 10 or head_y < 0 or head_y >= 10 or (head_x, head_y) in snake_body:
+        snake_game_active = False
+        return
+
+    if (head_x, head_y) == food_position:
+        snake_body.insert(0, (head_x, head_y))
+        food_position = (random.randint(0, 9), random.randint(0, 9))
+    else:
+        snake_body.insert(0, (head_x, head_y))
+        snake_body.pop()
+
+@bot.command()
+async def snake(ctx):
+    global snake_body, food_position, snake_direction, snake_game_active, snake_players
+    snake_players += 1
+    snake_body = [(0, 0)]
+    food_position = (random.randint(0, 9), random.randint(0, 9))
+    snake_direction = "RIGHT"
+    snake_game_active = True
+
+    await ctx.send("¡Comenzando el juego Snake! Usa las reacciones para moverte. 🐍🍏")
+    game_board = await ctx.send(render_board())
+    await game_board.add_reaction("⬅️")
+    await game_board.add_reaction("➡️")
+    await game_board.add_reaction("⬆️")
+    await game_board.add_reaction("⬇️")
+
+    while snake_game_active:
+        def check(reaction, user):
+            return user == ctx.author and str(reaction.emoji) in ["⬅️", "➡️", "⬆️", "⬇️"]
+
+        try:
+            reaction, user = await bot.wait_for('reaction_add', check=check, timeout=10.0)
+            if str(reaction.emoji) == "⬅️":
+                snake_direction = "LEFT"
+            elif str(reaction.emoji) == "➡️":
+                snake_direction = "RIGHT"
+            elif str(reaction.emoji) == "⬆️":
+                snake_direction = "UP"
+            elif str(reaction.emoji) == "⬇️":
+                snake_direction = "DOWN"
+        except asyncio.TimeoutError:
+            await ctx.send("¡Tiempo agotado! El juego ha terminado.")
+            snake_game_active = False
+            return
