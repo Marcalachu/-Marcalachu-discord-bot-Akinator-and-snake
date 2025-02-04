@@ -1,5 +1,5 @@
 # Marcalachu-discord-bot
-Play snake and akinator in discord with comands !akinator !snake
+Play snake and akinator in discord with comands /akinator /snake
 Made by Marcalachu 
 # Discord Bot: Akinator and Snake
 
@@ -20,7 +20,7 @@ This is a Discord bot that allows users to play Akinator and Snake. The bot uses
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your_username/your_repository.git
+   git clone https://github.com/-Marcalachu-discord-bot-Akinator-and-snake
    cd your_repository
    # At the end of main.py
 
