@@ -15,7 +15,8 @@ This is a Discord bot that allows users to play Akinator and Snake. The bot uses
 - Python 3.8 or higher
 - `discord.py` (version 2.0 or higher)
 - A Discord bot token
-
+## where it works?
+In the app Replit
 ## Installation
 
 1. **Clone the repository**:
